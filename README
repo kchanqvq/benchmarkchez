@@ -1,23 +1,23 @@
 WHAT IS THIS REPO:
 The chez fan killer, or Yin fan killer.
 This is an extremely boring repo with low code quality (one-time use code) and it wasted me precious time just to mock on human's stupidicity.
-The main purpose is to rescue people brainwashed (or brain degraded) by some person whose first name starts with Y.
+The main purpose is to rescue people b????washed (or b???? degraded) by some person whose first name starts with Y.
 
 HOW:
 Chez sucks and is usually slower than even LuaJIT.
 
 DO IT YOURSELF:
-1) Get your luajit and fucking chez installed
-2) run ./fuck and get fucked. (Only brainless Yin fan get fucked).
+1) Get your luajit and ????ing chez installed
+2) run ./???? and get ????ed. (Only b????less Yin fan get ????ed).
 
-Since this is a fucking boring repo and life is short I only randomly ported one benchmark (mandelbrot) for now. I'm fair to both. I used the single thread implementation for LuaJIT and I turn on chez's optimization.
+Since this is a ????ing boring repo and life is short I only randomly ported one benchmark (mandelbrot) for now. I'm fair to both. I used the single thread implementation for LuaJIT and I turn on chez's optimization.
 Result I get:
 25s for LuaJIT
 1m19s for chez (or 79s, for people can not do math)
 
-Go try and fuck yourself. Or try unfuck by saying chez is not so clever to optimize this code and write some implementation chez like better. Or try unfuck by porting some other benchmark. Or go to hell.
+Go try and ???? yourself. Or try un???? by saying chez is not so clever to optimize this code and write some implementation chez like better. Or try un???? by porting some other benchmark. Or go to h???.
 
-Update on Yin fan unfucking attempt:
+Update on Yin fan un????ing attempt:
 > Optimize level 3 must be taking too much time! (Author note: Wait, chez is known for fast compilation, even I admit this.. this is fact, 2s bootstrap, and it is completely reasonable to assume compilation time can be ignored in this 1min long test)
 > Let's try O1!
 But it is hard to explain when your task is to fight against human stupidity. So lets try out optimization level 1.
@@ -28,10 +28,10 @@ real	1m27.136s
 user	1m25.708s
 sys	0m1.304s
 
-oof, you are more fucked now.
+oof, you are more ????ed now.
 
 Update 2:
-retarded Yin fan argues the comparison does not make sense because chez may take too much time to compile.
+r?????ed Yin fan argues the comparison does not make sense because chez may take too much time to compile.
 Ok. Lets do mandelbrot with size 1. The compile time is strictly less than this time.
 
 $ time chez --optimize-level 3 --compile-imported-libraries --program mandelbrot.scm > /dev/null
