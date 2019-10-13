@@ -1,0 +1,7 @@
+#!/usr/bin/env/bash
+echo Mandelbrot 16000
+
+echo ==LUAJIT==
+time luajit mandelbrot/mandelbrot.lua-2.lua 16000 > /dev/null
+echo ==CHEZ==
+time chez --optimize-level 3 --compile-imported-libraries --program mandelbrot/mandelbrot.scm > /dev/null

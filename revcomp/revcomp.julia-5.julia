@@ -1,0 +1,98 @@
+# The Computer Language Benchmarks Game
+# https://salsa.debian.org/benchmarksgame-team/benchmarksgame/
+#
+# Written by Jens Adam
+# using code and ideas from
+# -- David Campbell, Jarrett Revels, Kristoffer Carlsson,
+# -- Alex Arslan, Olof Salberger, Adam Beckmeyer
+
+const READ_SIZE = 16384
+
+const IO = stdin
+const OUTIO = stdout
+
+const REVCOMPDATA = zeros(UInt8, 256)
+for (i, j) in zip("AaCcGgTtUuMmRrWwSsYyKkVvHhDdBbNn",
+                  "TTGGCCAAAAKKYYWWSSRRMMBBDDHHVVNN")
+    @inbounds REVCOMPDATA[i % UInt8] = j % UInt8
+end
+
+function append!(v, xs, space)
+    lentotal = length(v) + length(xs)
+    if lentotal > space
+        space = nextpow(2, lentotal) << 2
+        sizehint!(v, space)
+    end
+    @inbounds Base.append!(v, xs)
+    return space
+end
+
+# Reverse the sequence while creating complements.
+# Skip newlines because they are in the right spot already.
+# Finally, print out the sequence.
+function print_sequence(v)
+    l = length(v)
+    l == 0 && return
+    i = 1
+    r = l
+    @inbounds while true
+        vi = v[i]
+        vr = v[r]
+        if vi === UInt8('\n')
+            i += 1
+            vi = v[i]
+        end
+        if vr === UInt8('\n')
+            r -= 1
+            vr = v[r]
+        end
+        if i >= r
+           break
+        end
+        v[i], v[r] = REVCOMPDATA[vr], REVCOMPDATA[vi]
+        i += 1
+        r -= 1
+    end
+    if i == r
+        v[r] = REVCOMPDATA[v[r]]
+    end
+    write(OUTIO, @inbounds @view v[1:l])
+end
+
+@inline function check_for_sequence(buff, bytes)
+    i = 1
+    while i <= bytes
+        @inbounds buff[i] === UInt8('>') && return i - 1
+        i += 1
+    end
+    return bytes
+end
+
+function perf_revcomp()
+    sequence = UInt8[]
+    space = READ_SIZE * 8  # the capacity of `sequence`
+    sizehint!(sequence, space)
+    buff = Vector{UInt8}(undef, READ_SIZE)
+    while !eof(IO)
+        pos = position(IO)
+        bytes = readbytes!(IO, buff, READ_SIZE)
+        s = check_for_sequence(buff, bytes)
+
+        if s != bytes  # new sequence beginning found
+            # Append the rest of the sequence, process it,
+            # go to the new sequence and continue there.
+            space = append!(sequence, buff[1:s], space)
+            print_sequence(sequence)
+            empty!(sequence)
+            seek(IO, pos + s)
+            write(OUTIO, readline(IO, keep = true))
+        elseif bytes != READ_SIZE  # EOL
+            space = append!(sequence, buff[1:bytes], space)
+        else
+            space = append!(sequence, buff, space)
+        end
+    end
+    print_sequence(sequence)
+end
+
+perf_revcomp()

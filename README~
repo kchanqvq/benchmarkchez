@@ -1,0 +1,15 @@
+binarytrees		ACTIVE
+chameneosredux		obsolete,removed
+fannkuchredux		ACTIVE
+fasta			ACTIVE
+fastaredux		obsolete,removed
+knucleotide		ACTIVE
+mandelbrot		ACTIVE
+meteor			obsolete,removed
+nbody			ACTIVE
+pidigits		ACTIVE
+regexdna		obsolete,removed
+regexredux		ACTIVE
+revcomp			ACTIVE
+spectralnorm		ACTIVE
+threadring		obsolete,removed

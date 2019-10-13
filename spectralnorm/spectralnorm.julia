@@ -1,0 +1,63 @@
+# The Computer Language Benchmarks Game
+# https://salsa.debian.org/benchmarksgame-team/benchmarksgame/
+#
+# Contributed by Lutfullah Tomak
+# based on C gcc implaemetation
+
+using Printf
+
+@inline A(i::Integer, j::Integer) = 1.0/((i+j)*(i+j+1)/2+i+1)
+
+function A_multiply_u!(N::Integer,
+                       u::Vector{T},
+                       Au::Vector{S}
+                      ) where {T<:Number,S<:Number}
+    Threads.@threads for i=1:N
+        r = zero(T)
+        @simd for j=1:N
+            r += T(A(i-1,j-1)*u[j])
+        end
+        Au[i] = S(r)
+    end
+    return nothing
+end
+
+function At_multiply_u!(N::Integer,
+                       u::Vector{T},
+                       Atu::Vector{S}
+                      ) where {T<:Number,S<:Number}
+    Threads.@threads for i=1:N
+        r = zero(T)
+        @simd for j=1:N
+            r += T(A(j-1,i-1)*u[j])
+        end
+        Atu[i] = S(r)
+    end
+    return nothing
+end
+
+function AtA_multiply_u!(N::Integer,
+                       u::Vector{T},
+                       AtAu::Vector{S}
+                      ) where {T<:Number,S<:Number}
+    v = Vector{S}(undef, N)
+    A_multiply_u!(N,u,v)
+    At_multiply_u!(N,v,AtAu)
+    return nothing
+end
+
+function main(N::Integer, niter=10)
+  u = ones(N)
+  v = zeros(N)
+  for i = 1:niter
+      AtA_multiply_u!(N,u,v)
+      AtA_multiply_u!(N,v,u)
+  end
+  vBv = sum(u.*v)
+  vv  = sum(v.*v)
+  @printf("%0.9f\n",sqrt(vBv/vv))
+  return nothing
+end
+
+N = parse(Int,ARGS[1])
+main(N)

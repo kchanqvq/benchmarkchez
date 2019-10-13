@@ -1,0 +1,110 @@
+/**
+ * The Computer Language Benchmarks Game
+ * https://salsa.debian.org/benchmarksgame-team/benchmarksgame/
+
+ * contributed by Denis Gribov 
+   (based on Andreas Schmelz nodejs program)
+ */
+
+declare function require(val: string): any;
+declare const process: any;
+declare const __filename: string;
+
+// module with flag --experimental-worker from node 10.5.0
+const worker_threads = require('worker_threads');
+
+interface IWorkerData {
+    size: number;
+    bufferSize: number;
+    start: number;
+    end: number;
+}
+
+if (worker_threads.isMainThread) {
+
+    (async function() {
+        const size = +process.argv[2] || 48;
+        const numCPUs = require('os').cpus().length * 2;
+
+        function createWorker(data: IWorkerData): Promise<ArrayBuffer> {
+            return new Promise((resolve: (v: ArrayBuffer) => void, reject) => {
+                let worker = new worker_threads.Worker(__filename, { workerData: data });
+                worker.on('message', resolve);
+                worker.on('error', reject);
+            });
+        }
+
+        if (size % 8 != 0) {
+            console.error('size must be multiple of 8');
+            process.exit(-1);
+        }
+        if (size * size / numCPUs % 8 != 0) {
+            console.error('cannot distribute equal across cpus');
+            process.exit(-1);
+        }
+
+        let workers = new Array<Promise<ArrayBuffer>>(numCPUs);
+        const bufferSize = size * size / 8 / numCPUs,
+              sizePerCPU = size / numCPUs;
+        for (let i = 0; i < numCPUs; i++) {
+            workers[i] = createWorker({
+                size,
+                bufferSize,
+                start: Math.floor(i * sizePerCPU),
+                end: Math.floor((i + 1) * sizePerCPU)
+            });
+        }
+
+        let stdout = process.stdout;
+        stdout.write('P4\n' + size + ' ' + size + '\n');
+
+        for (let item of (await Promise.all(workers))) {
+            stdout.write(new Uint8Array(item));
+        }
+    })().then(() => void 0, err => console.log(err));
+
+} else {
+
+    const workerData: IWorkerData = worker_threads.workerData;
+
+    function doCalc(Cr: number, Ci: number, limit: number): number {
+        const iter = 50;
+        let Zr = 0.0,
+            Zi = 0.0,
+            Tr = 0.0,
+            Ti = 0.0;
+        for (let i = 0; i < iter && Tr + Ti <= limit; i++) {
+            Zi = 2.0 * Zr * Zi + Ci,
+                Zr = Tr - Ti + Cr,
+                Tr = Zr * Zr,
+                Ti = Zi * Zi;
+        }
+        return Tr + Ti;
+    };
+
+    let buff = new ArrayBuffer(workerData.bufferSize),
+        arr = new Uint8Array(buff);
+
+    let byte_acc = 0,
+        bit_num = 0,
+        it = 0;
+    const limit = 4.0,
+          size = workerData.size,
+          xd = 2 / size;
+    for (let y = workerData.start; y < workerData.end; y++) {
+        let yd = 2 * y / size - 1;
+        for (let x = 0; x < size; x++) {
+            let sum = doCalc(xd * x - 1.5, yd, limit);
+            byte_acc |= +(sum <= limit);
+            if (++bit_num === 8) {
+                arr[it++] = byte_acc;
+                byte_acc = bit_num = 0;
+            } else {
+                byte_acc <<= 1;
+            }
+        }
+    }
+
+    worker_threads.parentPort.postMessage(buff, [buff]);
+
+}

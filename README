@@ -1,0 +1,35 @@
+WHAT IS THIS REPO:
+The chez fan killer, or Yin fan killer.
+This is an extremely boring repo with low code quality (one-time use code) and it wasted me precious time just to mock on human's stupidicity.
+The main purpose is to rescue people brainwashed (or brain degraded) by some person whose first name starts with Y.
+
+HOW:
+Chez sucks and is usually slower than even LuaJIT.
+
+DO IT YOURSELF:
+1) Get your luajit and fucking chez installed
+2) run ./fuck and get fucked. (Only brainless Yin fan get fucked).
+
+Since this is a fucking boring repo and life is short I only randomly ported one benchmark (mandelbrot) for now. I'm fair to both. I used the single thread implementation for LuaJIT and I turn on chez's optimization.
+Result I get:
+25s for LuaJIT
+1m19s for chez (or 79s, for people can not do math)
+
+Go try and fuck yourself. Or try unfuck by saying chez is not so clever to optimize this code and write some implementation chez like better. Or try unfuck by porting some other benchmark. Or go to hell.
+
+== inherited from orignal repo ==
+binarytrees		ACTIVE
+chameneosredux		obsolete,removed
+fannkuchredux		ACTIVE
+fasta			ACTIVE
+fastaredux		obsolete,removed
+knucleotide		ACTIVE
+mandelbrot		ACTIVE
+meteor			obsolete,removed
+nbody			ACTIVE
+pidigits		ACTIVE
+regexdna		obsolete,removed
+regexredux		ACTIVE
+revcomp			ACTIVE
+spectralnorm		ACTIVE
+threadring		obsolete,removed

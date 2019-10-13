@@ -1,0 +1,51 @@
+// The Computer Language Benchmarks Game
+// https://benchmarksgame-team.pages.debian.net/benchmarksgame/
+//
+// contributed by Jimmy Tang
+// multithreaded by Anthony Lloyd
+
+open System
+open System.IO
+open System.Threading
+
+let ms = new MemoryStream(8 * 1024 * 1024)
+Console.OpenStandardInput().CopyTo(ms, 1024 * 1024)
+let bytes = ms.GetBuffer()
+let count = int ms.Length
+
+let map = Array.init 256 byte
+Array.iter2 (fun i v -> map.[int i] <- v)
+    "ABCDGHKMRTVYabcdghkmrtvy"B
+    "TVGHCDMKYABRTVGHCDMKYABR"B
+
+let rec reverseAll i threads =
+
+    let reverse startIndex endIndex =
+        let mutable lo, hi = startIndex, endIndex
+        while lo<=hi do
+            let iValue = bytes.[lo]
+            let jValue = bytes.[hi]
+            if iValue='\n'B then
+                lo <- lo+1
+                if jValue='\n'B then hi <- hi-1
+            elif jValue='\n'B then
+                hi <- hi-1
+            else
+                bytes.[lo] <- map.[int jValue]
+                bytes.[hi] <- map.[int iValue]
+                lo <- lo+1
+                hi <- hi-1
+                
+    let lo = Array.IndexOf(bytes, '\n'B, i, count-i) + 1
+    let hi = Array.IndexOf(bytes, '>'B, lo, count-lo)
+    if -1=hi then
+        reverse lo (count-1)
+        threads
+    else
+        let thread = new Thread(fun () -> reverse lo (hi-1))
+        thread.Start()
+        reverseAll (hi+1) (thread::threads)
+
+reverseAll 0 [] |> List.iter (fun t -> t.Join())
+
+Console.OpenStandardOutput().Write(bytes, 0, count)

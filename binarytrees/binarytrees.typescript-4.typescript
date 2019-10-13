@@ -1,0 +1,92 @@
+/**
+ * The Computer Language Benchmarks Game
+ * https://salsa.debian.org/benchmarksgame-team/benchmarksgame/
+
+ * *reset*
+ * contributed by Denis Gribov
+ */
+
+declare function require(val: string): any;
+declare const process: any;
+declare const __filename: string;
+
+// module with flag --experimental-worker from node 10.5.0
+const worker_threads = require('worker_threads');
+
+interface IWorkerData {
+    depth: number;
+    frontDepth: number;
+}
+
+interface IWorkerResult {
+    depth: number;
+    iterations: number;
+    checkSum: number;
+}
+
+interface ITreeNode {
+    left?: ITreeNode;
+    right?: ITreeNode;
+}
+
+// doesn't work in worker
+// class TreeNode implements ITreeNode {
+//     constructor(public left?: TreeNode, public right?: TreeNode) { }
+// }
+
+function TreeNode(left?: ITreeNode, right?: ITreeNode): ITreeNode {
+    return { left, right };
+}
+
+function check(item: ITreeNode): number {
+    let { left, right } = item;
+    return left ? 1 + check(left) + check(right!) : 1;
+}
+
+function bottomUpTree(depth: number): ITreeNode {
+    let nextDepth = depth - 1;
+    return depth > 0 ? TreeNode(bottomUpTree(nextDepth), bottomUpTree(nextDepth)) : TreeNode();
+}
+
+if (worker_threads.isMainThread) {
+
+    (async function () {
+        const C_N = +process.argv[2] || 21,
+            C_MINDEPTH = 4,
+            C_MAXDEPTH = Math.max(C_MINDEPTH + 2, C_N),
+            C_STRETCHDEPTH = C_MAXDEPTH + 1,
+            C_FRONTDEPTH = C_MAXDEPTH + C_MINDEPTH;
+
+        function createWorker(depth: number): Promise<IWorkerResult> {
+            return new Promise((resolve: (v: IWorkerResult) => void, reject) => {
+                let worker = new worker_threads.Worker(__filename, { workerData: <IWorkerData>{ depth: depth, frontDepth: C_FRONTDEPTH } });
+                worker.on('message', resolve);
+                worker.on('error', reject);
+            });
+        }
+
+        console.log(`stretch tree of depth ${C_STRETCHDEPTH}\t check: ${check(bottomUpTree(C_STRETCHDEPTH))}`);
+        let longLivedTree = bottomUpTree(C_MAXDEPTH),
+            stepCount = ((C_MAXDEPTH - C_MINDEPTH) >>> 1) + 1,
+            workers = new Array<Promise<IWorkerResult>>(stepCount);
+        for (let i = 0; i < stepCount; i++) {
+            workers[i] = createWorker(C_MINDEPTH + (i << 1));
+        }
+        for (let item of (await Promise.all(workers))) {
+            console.log(`${item.iterations}\t trees of depth ${item.depth}\t check: ${item.checkSum}`);
+        }
+        console.log(`long lived tree of depth ${C_MAXDEPTH}\t check: ${check(longLivedTree)}`);
+
+    })().then(() => void 0, (err) => console.log(err));
+
+} else {
+
+        let { depth, frontDepth } = <IWorkerData>worker_threads.workerData;
+        const iterations = 1 << (frontDepth - depth);
+        let checkSum = 0;
+        for (let i = 1; i <= iterations; i++) {
+            checkSum += check(bottomUpTree(depth));
+        }
+        worker_threads.parentPort.postMessage(<IWorkerResult>{ iterations, depth, checkSum });
+
+}

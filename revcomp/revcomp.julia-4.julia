@@ -1,0 +1,86 @@
+# The Computer Language Benchmarks Game
+# https://salsa.debian.org/benchmarksgame-team/benchmarksgame/
+#
+# Written by Jens Adam
+# using code and ideas from
+# -- David Campbell, Jarrett Revels, Kristoffer Carlsson,
+# -- Alex Arslan, Olof Salberger, Adam Beckmeyer
+
+const LINELEN = 61  # including the newline
+
+const revcompdata = zeros(UInt8, 256)
+for (i, j) in zip(
+    "AaCcGgTtUuMmRrWwSsYyKkVvHhDdBbNn",
+    "TTGGCCAAAAKKYYWWSSRRMMBBDDHHVVNN"
+)
+    @inbounds revcompdata[i % UInt8] = j % UInt8
+end
+
+function append!(v, xs, space)
+    lentotal = length(v) + length(xs)
+    if lentotal > space
+        space = nextpow(2, nextpow(2, lentotal))
+        sizehint!(v, space)
+    end
+    @inbounds Base.append!(v, xs)
+    return space
+end
+
+# The buffer contains the newlines in the right spots so skip those. Reverse the
+# buffer byte by byte and calculate the complement in the process.
+function print_buff(outio, v)
+    l = length(v)
+    l == 0 && return
+    i = 1
+    r = l
+    @inbounds while true
+        vi = v[i]
+        vr = v[r]
+        if vi == UInt8('\n')
+            i += 1
+            vi = v[i]
+        end
+        if vr == UInt8('\n')
+            r -= 1
+            vr = v[r]
+        end
+        if i >= r
+           break
+        end
+        v[i], v[r] = revcompdata[vr], revcompdata[vi]
+        i += 1
+        r -= 1
+    end
+    if i == r
+        v[r] = revcompdata[v[r]]
+    end
+    write(outio, @inbounds @view v[1:l])
+end
+
+# Keep a vector with all the bytes read so far. Also keep a vector to read the
+# next 61 byes (usually one line) in place. If the line was actually shorter
+# than that, discard the bytes and reread just the line.
+function perf_revcomp(io = stdin, outio = stdout)
+    space = 1_000
+    buff = UInt8[]
+    sizehint!(buff, space)
+    line = Vector{UInt8}(undef, LINELEN)
+    while !eof(io)
+        pos = position(io)
+        no = readbytes!(io, line, LINELEN)  # read including newline
+        if line[1] == UInt8('>')
+            print_buff(outio, buff)
+            empty!(buff)
+            seek(io, pos)
+            write(outio, readline(io)); write(outio, '\n')
+        elseif line[end] != UInt8('\n') || no < LINELEN
+            seek(io, pos)
+            space = append!(buff, codeunits(readline(io, keep = true)), space)
+        else
+            space = append!(buff, line, space)
+        end
+    end
+    print_buff(outio, buff)
+end
+
+perf_revcomp()

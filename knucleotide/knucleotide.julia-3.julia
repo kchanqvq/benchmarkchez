@@ -1,0 +1,245 @@
+# The Computer Language Benchmarks Game
+# https://salsa.debian.org/benchmarksgame-team/benchmarksgame/
+#
+# contributed by Jean-pierre Both
+
+using Printf
+using Match
+
+import Base.isless
+
+knuclength = [1, 2, 3, 4, 6, 12, 18]
+
+
+mutable struct KNuc
+    name::AbstractString
+    count::Int
+end
+
+@inline function convertBaseToBit(c::Char)
+    b = @match c begin
+        'A' => 0b00
+        'C' => 0b01
+        'G' => 0b10
+        'T' => 0b11
+        _   => exit(1)
+    end
+    b
+end
+
+
+
+
+mutable struct Kmer
+    val::UInt64
+    mask::UInt64
+    nBases::UInt8
+    #
+    function Kmer(str::String)
+        nbBases = length(str)
+        mask = UInt64(0)
+        val = 0
+        for i in 1:nbBases
+            mask = mask | (UInt64(3) << (2*(i-1)))
+            @inbounds b = convertBaseToBit(str[i])
+            val = b | (val << 2)
+        end
+        new(val, mask, nbBases)
+    end
+end
+
+
+
+function encode(kmer::Kmer, str::String)
+    if kmer.nbBases != 1:length(str)
+        throw(DomainError(str[i], "incoherent lenght"))
+    end
+    #
+    for i in 1:kmer.nbBases
+        push!(kmer,str[i])
+    end
+    kmer
+end
+
+
+@inline function push!(kmer::Kmer, c::Char)
+    kmer.val = kmer.mask & ((kmer.val << 2) | convertBaseToBit(c)) 
+end
+
+
+# Maintain one counter by length of  Kmer and last kmer seen and associated dict
+mutable struct KmerCounter
+    nBases::UInt8
+    lastKmer::Kmer
+    dict::Dict{UInt64, Int64}
+    #
+    function KmerCounter(nbBases::UInt8, line::String)
+        dict = Dict{UInt64, Int64}()
+        kmer = Kmer(line[1:nbBases])
+        dict[kmer.val] = 1
+        new(nbBases, kmer, dict)
+    end
+end
+
+
+# decode  a KmerCounter into a Vector{KNuc}
+function decodeCounter(kcounter::KmerCounter)
+    vknuc = Vector{KNuc}()
+    #
+    iter = iterate(kcounter.dict)
+    while iter != nothing
+        v=Vector{Char}(undef, kcounter.nBases)
+        # iter[1] is (key, value), iter[2] is state iter
+        item = iter[1]
+        key = item[1]
+        # We have a 64bit word and nbBases codes of 2 bits
+        for i in 1:kcounter.nBases
+            b = 0b11 & key
+            c = @match b begin
+                0b00 => 'A'
+                0b01 => 'C'
+                0b10 => 'G'
+                0b11 => 'T'
+                _   => exit(1)
+            end
+            key = key >> 2  
+            v[i] = c
+        end
+        count = item[2]
+        # reverse beccause we popped in inverse order
+        Base.push!(vknuc, KNuc(reverse(String(v)), count))
+        #
+        iter = iterate(kcounter.dict, iter[2])
+    end
+    vknuc
+end
+
+
+
+function count_knuc_by_dict(shift::Bool, data::String, kcounter::KmerCounter, klength)
+    #
+    if shift
+        start = klength+1
+    else
+        start = 1
+    end
+    #
+    @simd for i in start:length(data)
+        # beginning of buffer may contains last 17 chars of preceding batch...
+        @inbounds key = data[i]
+        push!(kcounter.lastKmer, key)
+        if haskey(kcounter.dict, kcounter.lastKmer.val)
+            kcounter.dict[kcounter.lastKmer.val] += 1
+        else
+            kcounter.dict[kcounter.lastKmer.val] = 1
+        end
+    end
+    kcounter
+end
+
+
+function count_knuc_by_dict_blocks(shift::Bool, data::String, kcounts::Vector{KmerCounter}, knuclength)
+    nbdict = length(knuclength)
+    Threads.@threads for j in 1:nbdict
+        kcounts[j] = count_knuc_by_dict(shift, data, kcounts[j], knuclength[j])
+    end
+    return kcounts
+end
+
+
+# output utilities
+# sort down
+
+function isless(x::KNuc, y::KNuc)
+    if x.count == y.count
+        return x.name > y.name
+    end
+    x.count > y.count
+end
+
+
+function print_knucs(a::Array{KNuc, 1})
+    sum = mapreduce(x -> x.count, +, a; init = 0) 
+    for kn in a
+        @printf("%s %.3f\n", kn.name, (100.0* kn.count)/sum)
+    end
+    println()
+end
+
+
+# sort and print ( for kmer of length 1 and 2)
+function dumpDict(kn::Vector{KNuc})
+    sort!(kn, lt = isless)
+    print_knucs(kn)    
+end
+
+
+
+# for kmers of lenght > 2
+function print_knucs(a::Array{KNuc, 1})
+    sum = mapreduce(x -> x.count, +, a; init = 0) 
+    for kn in a
+        @printf("%s %.3f\n", kn.name, 100.0kn.count/sum)
+    end
+    println()
+end
+
+
+
+function perf_k_nucleotide()
+    #
+    threaded = true
+    # allocate counters
+    nbdict = length(knuclength)    
+    global kmercounts = Vector{KmerCounter}(undef, nbdict)
+    # open input file
+    fname = "knucleotide-Fasta-input.txt"
+#    fname = "input25000000.txt"
+#    io = open(fname)
+    io = stdin
+    #
+    three = ">THREE "
+    global nbline = 0
+    while true
+        line = readline(io)
+        nbline += 1
+        if length(line) >= length(three) && line[1:length(three)] == three
+            break
+        end
+    end
+    #
+    fasta3 = ""
+    nbbufline = 50000
+    nbtotline = 0
+    lines = Vector{String}(undef,nbbufline)
+    shift = true
+    while eof(io) != true
+        iline = 0
+        while iline < nbbufline && eof(io) != true
+            iline += 1
+            @inbounds lines[iline] = uppercase(chomp(readline(io)))
+        end
+        if nbtotline == 0
+            # initialize counter of each length
+            for k in 1:nbdict
+                kmercounts[k] = KmerCounter(UInt8(knuclength[k]), lines[1])
+            end
+        end
+        nbtotline += 1
+        fasta3 = join(lines[1:iline],"");
+        kmercounts = count_knuc_by_dict_blocks(shift, fasta3 , kmercounts, knuclength);
+        shift = false
+    end
+
+    dumpDict(decodeCounter(kmercounts[1]))
+    dumpDict(decodeCounter(kmercounts[2]))
+
+    @printf("%d\tGGT\n",                get(kmercounts[3].dict, Kmer("GGT").val, 0))
+    @printf("%d\tGGTA\n",               get(kmercounts[4].dict, Kmer("GGTA").val, 0))
+    @printf("%d\tGGTATT\n",             get(kmercounts[5].dict, Kmer("GGTATT").val, 0))
+    @printf("%d\tGGTATTTTAATT\n",       get(kmercounts[6].dict, Kmer("GGTATTTTAATT").val, 0))
+    @printf("%d\tGGTATTTTAATTTATAGT\n", get(kmercounts[7].dict, Kmer("GGTATTTTAATTTATAGT").val , 0))
+end
+
+
+perf_k_nucleotide();
