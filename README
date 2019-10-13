@@ -17,6 +17,19 @@ Result I get:
 
 Go try and fuck yourself. Or try unfuck by saying chez is not so clever to optimize this code and write some implementation chez like better. Or try unfuck by porting some other benchmark. Or go to hell.
 
+Update on Yin fan unfucking attempt:
+> Optimize level 3 must be taking too much time! (Author note: Wait, chez is known for fast compilation, even I admit this.. this is fact, 2s bootstrap, and it is completely reasonable to assume compilation time can be ignored in this 1min long test)
+> Let's try O1!
+But it is hard to explain when your task is to fight against human stupidity. So lets try out optimization level 1.
+
+$ time chez --optimize-level 1 --compile-imported-libraries --program mandelbrot.scm > /dev/null
+
+real	1m27.136s
+user	1m25.708s
+sys	0m1.304s
+
+oof, you are more fucked now.
+
 == inherited from orignal repo ==
 binarytrees		ACTIVE
 chameneosredux		obsolete,removed
